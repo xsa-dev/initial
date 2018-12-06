@@ -3,38 +3,42 @@ package test;
 import java.io.*;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 
-public class matchMatrix {
+public class MatchMatrix {
 
     private final long id;
-    private final String content;
+    private final String param;
+
     static List<String> matrix;
     static List<String> file;
     private String mpath;
     private String fpath;
     String response;
 
-    public matchMatrix(long id, String content) {
+    public MatchMatrix(long id, String param) {
         this.id = id;
-        this.content = content;
+        this.fpath = param;
 
-        mpath = "Матрица.txt";
-        fpath = "тест.txt";
+        this.mpath = "Матрица.txt";
 
         matrix = readfile(this.mpath);
-        file = readfile(this.fpath);
+        MatchMatrix.file = readfile(this.fpath);
 
-        if (matrixUpdates(file)) {
+        if (matrixUpdates(MatchMatrix.file)) {
             response = states.OK.toString();
         } else {
             response = states.FAIL.toString();
         }
 
+        this.param = null;
     }
 
     public String getContent() {
-        return content;
+        return param;
     }
 
     public String getResponse() {
@@ -87,14 +91,8 @@ public class matchMatrix {
             if (fileString == null) {
                 continue;
             }
-
             String[] row = fileString.split("\t");
-
-            // здесь каждая строка
-            for (String column : row) {
-                // тут уже каждая колонка
-            }
-
+            String updated = selectStringFromMatrix(row);
             sb.append(fileString);
             sb.append(System.lineSeparator());
         }
@@ -103,11 +101,40 @@ public class matchMatrix {
         return false;
     }
 
-    private void selectStringFromMatrix() {}
+    private String selectStringFromMatrix(String[] frow) {
+        int fcoli = 0;
+        for (String fcol : frow) {
+            if (fcol.equals("")) {
+                // todo Поиск значения в файле матрице делается либо по ШК либо по наименованию.
+                  for (String matrixTable : matrix) {
+                    String[] mrow = matrixTable.split("\t");
+                        int mcoli = 0;
+                        for (String mcol : mrow) {
+                            if (mrow[1].equals(frow[2]) || frow[1].equals(mrow[3])) {
+                                // todo Здесь нужно наполнять данными пустой выходной файл, но не ясно какой выбирать столбец
+
+                                frow[fcoli] = mrow[mcoli];
+
+                            }
+                        }
+                        mcoli++;
+                        return mrow[0];
+                }
+            }
+            fcoli++;
+        }
+
+            // todo В выходном файле должны быть все поля исходного файла и поля, полученные при сопоставлении (ART_ID, GR*). Также надо заполнить поле type_docking: если совпадение найдено по ШК - 1, по наименованию - 2, не найдено - 0
+
+        return "";
+    }
 
     private void appendToOutFile(String str) {
         System.out.println(str);
     }
 
     private void updateFileCallback() {}
+
+    class MyExeption extends Exception {
+    }
 }
