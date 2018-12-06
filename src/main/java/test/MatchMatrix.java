@@ -1,11 +1,17 @@
 package test;
 
+import org.springframework.util.StringUtils;
+
 import java.io.*;
+import java.text.MessageFormat;
+import java.text.ParseException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
-import java.util.Optional;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
+import java.util.function.BiFunction;
+import java.util.function.Function;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 
 public class MatchMatrix {
@@ -13,7 +19,7 @@ public class MatchMatrix {
     private final long id;
     private final String param;
 
-    static List<String> matrix;
+    static List<String> mfile;
     static List<String> file;
     private String mpath;
     private String fpath;
@@ -25,19 +31,121 @@ public class MatchMatrix {
 
         this.mpath = "Матрица.txt";
 
-        matrix = readfile(this.mpath);
-        MatchMatrix.file = readfile(this.fpath);
+        mfile = readfile(this.mpath);
+        file = readfile(this.fpath);
 
-        if (matrixUpdates(MatchMatrix.file)) {
-            response = states.OK.toString();
-        } else {
-            response = states.FAIL.toString();
+        StringBuilder stringBuilder = new StringBuilder();
+        stringBuilder.append("real_name\tproduct_name\tbarcode\tprice_without_discount\tprice\taccomplishments\ttype_docking\tART_ID\tGR20\tGR21\tGR22\tGR23");
+        stringBuilder.append(System.lineSeparator());
+
+        String orow = null;
+        for (String frow : file) {
+            // Для каждой строки файла будем формировать исходящую строку
+            if (frow == null) continue;
+            String[] fcols = frow.split("\t");
+
+            String key;
+            key = fcols[2];
+            if (fcols[2].equals("")) {
+                key = fcols[0];
+            }
+
+            String[] qparams = new String[2];
+            for (String mrow : mfile) {
+                if (mrow == null) continue;
+                String[] mcols = mrow.split("\t");
+                if (mcols[1].equals(key)) {
+                    qparams[0] = mrow;
+                    qparams[1] = frow;
+                    orow = selectDb.apply(qparams, 2);
+                } else if (mcols[2].equals(key)) {
+                    qparams[0] = mrow;
+                    qparams[1] = frow;
+                    orow = selectDb.apply(qparams, 1);
+                } else {
+                    continue;
+                }
+            }
+
+            stringBuilder.append(orow);
+            stringBuilder.append(System.lineSeparator());
         }
 
+        try {
+            toOutFile("test.out", stringBuilder.toString());
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
+        response = states.OK.toString();
         this.param = null;
     }
 
-    public String getContent() {
+    // with multiple statements
+    BiFunction<String[], Integer, String> selectDb = (String[] db, Integer i) -> {
+        System.out.println("Detected!");
+
+        String[] d = db[0].split("\t");
+        String[] q = db[1].split("\t");
+
+        String[] x = Arrays.copyOf(q, 11);
+
+        x[0] = q[0]; // real_name
+        x[1] = d[2]; // product_name
+        x[2] = d[1]; // barcode
+
+        if (!isNumeric(x[2])) {
+            try {
+                throw new MyException("В баркоде должен быть числовое значение!");
+            } catch (MyException e) {
+                e.printStackTrace();
+            }
+        }
+
+        Pattern pattern = Pattern.compile("\\d{1,2}.\\d{2}");
+        Matcher matcher = pattern.matcher(q[0]);
+        if (matcher.find()){
+            x[3] = q[0]; // price_without_discount
+            // i think ....
+            //x[0] = "";
+        } else {
+            x[3] = "0"; // price_without_discount
+        }
+
+        // todo this
+        if (q[0].contains(d[2])) {
+            x[1] = q[0];
+            // i think ....
+            //q[0] = "";
+        }
+
+        x[3] = q[3]; // price
+        x[4] = q[4]; // accomplishments
+
+        x[5] = String.valueOf(i);
+
+        x[6] = d[0]; // ART_ID
+        x[7] = d[3]; // GR20
+        x[8] = d[4]; // GR21
+        x[9] = d[5]; // GR22
+        x[10] = d[6]; // GR24
+
+        String str = MessageFormat.format
+                ("{0}\t{1}\t{2},\t{3}\t{4}\t{5}\t{6}\t{7}\t{8}\t{9}\t{10}",
+                        x[0], x[1], x[2], x[3], x[4], x[5], x[6], x[7], x[8], x[9], x[10]);
+
+        return str;
+
+    };
+
+    public void toOutFile(String fileName, String outString)
+            throws IOException {
+        BufferedWriter writer = new BufferedWriter(new FileWriter(fileName));
+        writer.write(outString);
+        writer.close();
+    }
+
+    public String getParam() {
         return param;
     }
 
@@ -53,7 +161,7 @@ public class MatchMatrix {
     private List<String> readfile(String path) {
         List<String> strings = new ArrayList<>();
 
-        try(BufferedReader br = new BufferedReader(new FileReader(path))) {
+        try (BufferedReader br = new BufferedReader(new FileReader(path))) {
             StringBuilder sb = new StringBuilder();
             String line = br.readLine();
 
@@ -101,40 +209,25 @@ public class MatchMatrix {
         return false;
     }
 
-    private String selectStringFromMatrix(String[] frow) {
-        int fcoli = 0;
-        for (String fcol : frow) {
-            if (fcol.equals("")) {
-                // todo Поиск значения в файле матрице делается либо по ШК либо по наименованию.
-                  for (String matrixTable : matrix) {
-                    String[] mrow = matrixTable.split("\t");
-                        int mcoli = 0;
-                        for (String mcol : mrow) {
-                            if (mrow[1].equals(frow[2]) || frow[1].equals(mrow[3])) {
-                                // todo Здесь нужно наполнять данными пустой выходной файл, но не ясно какой выбирать столбец
-
-                                frow[fcoli] = mrow[mcoli];
-
-                            }
-                        }
-                        mcoli++;
-                        return mrow[0];
-                }
-            }
-            fcoli++;
+    public static boolean isNumeric(String str) {
+        try {
+            double d = Double.parseDouble(str);
+        } catch (NumberFormatException nfe) {
+            return false;
         }
+        return true;
+    }
 
-            // todo В выходном файле должны быть все поля исходного файла и поля, полученные при сопоставлении (ART_ID, GR*). Также надо заполнить поле type_docking: если совпадение найдено по ШК - 1, по наименованию - 2, не найдено - 0
-
+    private String selectStringFromMatrix(String[] frow) {
         return "";
     }
 
-    private void appendToOutFile(String str) {
-        System.out.println(str);
+    private void updateFileCallback() {
     }
 
-    private void updateFileCallback() {}
-
-    class MyExeption extends Exception {
+    class MyException extends Exception {
+        public MyException(String msg) {
+            super(msg);
+        }
     }
 }

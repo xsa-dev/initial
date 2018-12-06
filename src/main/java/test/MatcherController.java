@@ -10,8 +10,8 @@ import java.util.concurrent.atomic.AtomicLong;
 public class MatcherController {
     private final AtomicLong counter = new AtomicLong();
 
-    @RequestMapping("/greeting")
-    public matchMatrix greeting(@RequestParam(value="filename", defaultValue="тест.txt") String filename) {
-        return new matchMatrix(counter.incrementAndGet(), filename);
+    @RequestMapping("/match")
+    public MatchMatrix match(@RequestParam(value="filename", defaultValue="тест.txt") String filename) {
+        return new MatchMatrix(counter.incrementAndGet(), filename);
     }
 }
